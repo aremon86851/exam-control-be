@@ -1,0 +1,227 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String       @id @default(uuid())
+  name               String?
+  email              String       @unique
+  password           String?
+  mobile             String?
+  roles              Roles[]      @default([])
+  status             Status       @default(INVITED)
+  avatar             String?
+  isActive           Boolean      @default(true)
+  lastLogin          DateTime?
+  studentInfo        StudentInfo?
+  headedDepartments  Department[] @relation("HeadedDepartments")
+  facultyDepartments Department[] @relation("FacultyDepartments")
+  course             Course[]
+  exam               Exam[]
+  submission         Submission[]
+  result             Result[]
+  restrictedExams    Exam[]       @relation("RestrictedStudents")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("users")
+}
+
+model StudentInfo {
+  id           String @id @default(uuid())
+  userId       String @unique
+  user         User?  @relation(fields: [userId], references: [id])
+  semesterId   String
+  courseId     String
+  departmentId String
+
+  semester   Semester   @relation(fields: [semesterId], references: [id])
+  course     Course     @relation(fields: [courseId], references: [id])
+  department Department @relation(fields: [departmentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("studentInfo")
+}
+
+model Department {
+  id       String  @id @default(uuid())
+  name     String
+  isActive Boolean @default(true)
+
+  heads     User[] @relation("HeadedDepartments")
+  faculties User[] @relation("FacultyDepartments")
+
+  studentInfo StudentInfo[]
+  course      Course[]
+  exam        Exam[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("departments")
+}
+
+model Semester {
+  id        String   @id @default(uuid())
+  name      String
+  code      String
+  year      String
+  startDate DateTime
+  endDate   DateTime
+  examStart DateTime
+  examEnd   DateTime
+  coursesId String
+
+  course Course @relation(fields: [coursesId], references: [id])
+
+  studentInfo StudentInfo[]
+  exam        Exam[]
+  result      Result[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("semesters")
+}
+
+model Course {
+  id           String        @id @default(uuid())
+  title        String
+  departmentId String
+  instructorId String
+  credits      Int
+  durations    Int
+  maxStudent   Int
+  isActive     String
+  studentInfo  StudentInfo[]
+  semester     Semester[]
+
+  department Department @relation(fields: [departmentId], references: [id])
+  instructor User       @relation(fields: [instructorId], references: [id])
+  exam       Exam[]
+  result     Result[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("courses")
+}
+
+model Exam {
+  id          String @id @default(uuid())
+  duration    Int
+  description String
+  startDate   String
+  endDate     String
+
+  departmentId String
+  semesterId   String
+  courseId     String
+  facultyId    String
+
+  department         Department @relation(fields: [departmentId], references: [id])
+  semester           Semester   @relation(fields: [semesterId], references: [id])
+  course             Course     @relation(fields: [courseId], references: [id])
+  faculty            User       @relation(fields: [facultyId], references: [id])
+  questions          Question[] @relation("ExamQuestions")
+  restrictedStudents User[]     @relation("RestrictedStudents")
+  result             Result[]
+  Question           Question?  @relation(fields: [questionId], references: [id])
+  questionId         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("exams")
+}
+
+model Question {
+  id             String       @id @default(uuid())
+  type           QuestionType
+  question       String
+  options        String[]
+  correctAnswer  String?
+  correctAnswers String[]     @default([])
+  exams          Exam[]       @relation("ExamQuestions")
+  Exam           Exam[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) @updatedAt
+  category       String       @default("")
+
+  @@map("questions")
+}
+
+model Submission {
+  id          String   @id @default(uuid())
+  exam        String
+  studentId   String
+  startTime   DateTime
+  endTime     DateTime
+  submittedAt DateTime
+  timeSpent   Float
+  answer      String[]
+  totalScore  Float
+  percent     String
+  passed      String
+  student     User     @relation(fields: [studentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("submissions")
+}
+
+model Result {
+  id         String @id @default(uuid())
+  examId     String
+  studentId  String
+  courseId   String
+  semesterId String
+  rawScore   String
+  classRank  String
+  message    String
+
+  exam     Exam     @relation(fields: [examId], references: [id])
+  student  User     @relation(fields: [studentId], references: [id])
+  course   Course   @relation(fields: [courseId], references: [id])
+  semester Semester @relation(fields: [semesterId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("results")
+}
+
+enum QuestionType {
+  mcq_single
+  mcq_multiple
+  trueFalse
+  shortAnswer
+}
+
+enum Status {
+  INVITED
+  USER
+}
+
+enum Roles {
+  STUDENT
+  TEACHER
+  ADMIN
+  SUPER_ADMIN
+}
