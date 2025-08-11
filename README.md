@@ -15,7 +15,7 @@ This is the backend API for the Exam Control system.
 1. Push this repository to GitHub
 2. Create a new project in Vercel and import the GitHub repository
 3. Configure environment variables in Vercel:
-   - `DATABASE_URL`: Your PostgreSQL connection string
+   - `DB_POSTGRES_URL`: Your PostgreSQL connection string
    - `JWT_SECRET`: Secret key for JWT tokens
    - `JWT_REFRESH_SECRET`: Secret key for JWT refresh tokens
    - `JWT_EXPIRES_IN`: JWT token expiry (e.g., "1d")
@@ -29,7 +29,7 @@ This is the backend API for the Exam Control system.
    - [Neon](https://neon.tech) (recommended, has a free tier)
    - [Supabase](https://supabase.com)
    - [Railway](https://railway.app)
-3. Set the database connection string as the `DATABASE_URL` environment variable
+3. Set the database connection string as the `DB_POSTGRES_URL` environment variable
 
 ## API Documentation
 
