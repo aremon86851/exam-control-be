@@ -1,3 +1,4 @@
+import { QuestionType, Roles } from '@prisma/client';
 import prisma from '../../../constants/prisma-client';
 import type {
   IAutocompleteOption,
@@ -200,7 +201,7 @@ const getStudents = async (
       AND: [
         {
           roles: {
-            has: roles,
+            has: roles as Roles,
           },
         },
         q
@@ -248,7 +249,7 @@ const getExams = async (
       AND: [
         q
           ? {
-              title: { contains: q, mode: 'insensitive' },
+              description: { contains: q, mode: 'insensitive' },
             }
           : {},
         filters.courseId ? { courseId: filters.courseId } : {},
@@ -258,17 +259,25 @@ const getExams = async (
     },
     select: {
       id: true,
-      title: true,
+      description: true, // Using description instead of title
+      course: {
+        select: {
+          title: true, // Including the course title
+        },
+      },
     },
     take: limit,
     orderBy: {
-      title: 'asc',
+      createdAt: 'desc',
     },
   });
 
   return exams.map(exam => ({
     id: exam.id,
-    label: exam.title,
+    // Using description or course title as label
+    label: `${exam.course.title} - ${exam.description.substring(0, 30)}${
+      exam.description.length > 30 ? '...' : ''
+    }`,
     value: exam.id,
   }));
 };
@@ -286,9 +295,9 @@ const getQuestions = async (
               question: { contains: q, mode: 'insensitive' },
             }
           : {},
-        filters.courseId ? { courseId: filters.courseId } : {},
-        filters.type ? { type: filters.type } : {},
-        filters.difficulty ? { difficulty: filters.difficulty } : {},
+        // Question doesn't have courseId, type filters with what's available
+        filters.type ? { type: filters.type as QuestionType } : {},
+        // Remove difficulty filter as it doesn't exist in the schema
       ],
     },
     select: {

@@ -25,6 +25,6 @@ routes.patch(
   SemesterController.updateSemester,
 )
 
-routes.delete("/:id", auth(ENUM_USER_ROLE.SUPER_ADMIN), SemesterController.deleteSemester)
+routes.delete("/:id", auth(ENUM_USER_ROLE.ADMIN,ENUM_USER_ROLE.SUPER_ADMIN), SemesterController.deleteSemester)
 
 export const SemesterRoutes = routes

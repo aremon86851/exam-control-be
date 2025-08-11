@@ -1,11 +1,11 @@
-import type { Exam, Prisma } from "@prisma/client"
-import httpStatus from "http-status"
-import prisma from "../../../constants/prisma-client"
-import ApiError from "../../../errors/ApiError"
-import type { ICreateExam, IUpdateExam, IExamFilters } from "./exam.interface"
-import type { IPaginationOptions } from "../../../interfaces/pagination"
-import type { IGenericResponse } from "../../../interfaces/common"
-import { paginationHelpers } from "../../../helpers/paginationHelper"
+import type { Exam } from '@prisma/client';
+import httpStatus from 'http-status';
+import prisma from '../../../constants/prisma-client';
+import ApiError from '../../../errors/ApiError';
+import { paginationHelpers } from '../../../helpers/paginationHelper';
+import type { IGenericResponse } from '../../../interfaces/common';
+import type { IPaginationOptions } from '../../../interfaces/pagination';
+import type { ICreateExam, IExamFilters, IUpdateExam } from './exam.interface';
 
 const createExam = async (payload: ICreateExam): Promise<Exam> => {
   // Verify all related entities exist
@@ -14,12 +14,14 @@ const createExam = async (payload: ICreateExam): Promise<Exam> => {
     prisma.semester.findUnique({ where: { id: payload.semesterId } }),
     prisma.course.findUnique({ where: { id: payload.courseId } }),
     prisma.user.findUnique({ where: { id: payload.facultyId } }),
-  ])
+  ]);
 
-  if (!department) throw new ApiError(httpStatus.NOT_FOUND, "Department not found!")
-  if (!semester) throw new ApiError(httpStatus.NOT_FOUND, "Semester not found!")
-  if (!course) throw new ApiError(httpStatus.NOT_FOUND, "Course not found!")
-  if (!faculty) throw new ApiError(httpStatus.NOT_FOUND, "Faculty not found!")
+  if (!department)
+    throw new ApiError(httpStatus.NOT_FOUND, 'Department not found!');
+  if (!semester)
+    throw new ApiError(httpStatus.NOT_FOUND, 'Semester not found!');
+  if (!course) throw new ApiError(httpStatus.NOT_FOUND, 'Course not found!');
+  if (!faculty) throw new ApiError(httpStatus.NOT_FOUND, 'Faculty not found!');
 
   const result = await prisma.exam.create({
     data: {
@@ -33,7 +35,7 @@ const createExam = async (payload: ICreateExam): Promise<Exam> => {
       facultyId: payload.facultyId,
       questions: payload.questionIds
         ? {
-            connect: payload.questionIds.map((id) => ({ id })),
+            connect: payload.questionIds.map(id => ({ id })),
           }
         : undefined,
     },
@@ -46,39 +48,41 @@ const createExam = async (payload: ICreateExam): Promise<Exam> => {
       restrictedStudents: true,
       result: true,
     },
-  })
+  });
 
-  return result
-}
+  return result;
+};
 
 const getAllExams = async (
   filters: IExamFilters,
-  paginationOptions: IPaginationOptions,
+  paginationOptions: IPaginationOptions
 ): Promise<IGenericResponse<Exam[]>> => {
-  const { searchTerm, ...filterData } = filters
-  const { page, limit, skip, sortBy, sortOrder } = paginationHelpers.calculatePagination(paginationOptions)
+  const { searchTerm, ...filterData } = filters;
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelpers.calculatePagination(paginationOptions);
 
-  const andConditions = []
+  const andConditions = [];
 
   // Search term
   if (searchTerm) {
     andConditions.push({
-      description: { contains: searchTerm, mode: "insensitive" },
-    })
+      description: { contains: searchTerm, mode: 'insensitive' as const },
+    });
   }
 
   // Filters
   if (Object.keys(filterData).length > 0) {
     andConditions.push({
-      AND: Object.keys(filterData).map((key) => ({
+      AND: Object.keys(filterData).map(key => ({
         [key]: {
           equals: (filterData as any)[key],
         },
       })),
-    })
+    });
   }
 
-  const whereConditions: Prisma.ExamWhereInput = andConditions.length > 0 ? { AND: andConditions } : {}
+  const whereConditions =
+    andConditions.length > 0 ? { AND: andConditions } : {};
 
   const result = await prisma.exam.findMany({
     where: whereConditions,
@@ -96,11 +100,11 @@ const getAllExams = async (
       restrictedStudents: true,
       result: true,
     },
-  })
+  });
 
   const total = await prisma.exam.count({
     where: whereConditions,
-  })
+  });
 
   return {
     meta: {
@@ -109,8 +113,8 @@ const getAllExams = async (
       total,
     },
     data: result,
-  }
-}
+  };
+};
 
 const getSingleExam = async (id: string): Promise<Exam | null> => {
   const result = await prisma.exam.findUnique({
@@ -124,22 +128,22 @@ const getSingleExam = async (id: string): Promise<Exam | null> => {
       restrictedStudents: true,
       result: true,
     },
-  })
+  });
 
   if (!result) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Exam not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'Exam not found!');
   }
 
-  return result
-}
+  return result;
+};
 
 const updateExam = async (id: string, payload: IUpdateExam): Promise<Exam> => {
   const exam = await prisma.exam.findUnique({
     where: { id },
-  })
+  });
 
   if (!exam) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Exam not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'Exam not found!');
   }
 
   const result = await prisma.exam.update({
@@ -154,10 +158,10 @@ const updateExam = async (id: string, payload: IUpdateExam): Promise<Exam> => {
       restrictedStudents: true,
       result: true,
     },
-  })
+  });
 
-  return result
-}
+  return result;
+};
 
 const deleteExam = async (id: string): Promise<Exam> => {
   const exam = await prisma.exam.findUnique({
@@ -165,23 +169,26 @@ const deleteExam = async (id: string): Promise<Exam> => {
     include: {
       result: true,
     },
-  })
+  });
 
   if (!exam) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Exam not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'Exam not found!');
   }
 
   // Check if exam has associated results
   if (exam.result.length > 0) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Cannot delete exam with associated results!")
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      'Cannot delete exam with associated results!'
+    );
   }
 
   const result = await prisma.exam.delete({
     where: { id },
-  })
+  });
 
-  return result
-}
+  return result;
+};
 
 export const ExamServices = {
   createExam,
@@ -189,4 +196,4 @@ export const ExamServices = {
   getSingleExam,
   updateExam,
   deleteExam,
-}
+};

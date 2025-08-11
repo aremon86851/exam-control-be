@@ -1,34 +1,43 @@
-import type { Prisma, User } from "@prisma/client"
-import httpStatus from "http-status"
-import bcrypt from "bcryptjs"
-import prisma from "../../../constants/prisma-client"
-import ApiError from "../../../errors/ApiError"
-import type { ICreateUser, IUpdateUser, IUserFilters, IUpdateUserRoles } from "./user.interface"
-import type { IPaginationOptions } from "../../../interfaces/pagination"
-import type { IGenericResponse } from "../../../interfaces/common"
-import { paginationHelpers } from "../../../helpers/paginationHelper"
+import type { User } from '@prisma/client';
+import { Roles } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import httpStatus from 'http-status';
+import prisma from '../../../constants/prisma-client';
+import ApiError from '../../../errors/ApiError';
+import { paginationHelpers } from '../../../helpers/paginationHelper';
+import type { IGenericResponse } from '../../../interfaces/common';
+import type { IPaginationOptions } from '../../../interfaces/pagination';
+import type {
+  ICreateUser,
+  IUpdateUser,
+  IUpdateUserRoles,
+  IUserFilters,
+} from './user.interface';
 
 const createUser = async (payload: ICreateUser): Promise<Partial<User>> => {
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({
     where: { email: payload.email },
-  })
+  });
 
   if (existingUser) {
-    throw new ApiError(httpStatus.CONFLICT, "User already exists with this email!")
+    throw new ApiError(
+      httpStatus.CONFLICT,
+      'User already exists with this email!'
+    );
   }
 
   // Hash password if provided
-  let hashedPassword
+  let hashedPassword;
   if (payload.password) {
-    hashedPassword = await bcrypt.hash(payload.password, 12)
+    hashedPassword = await bcrypt.hash(payload.password, 12);
   }
 
   const result = await prisma.user.create({
     data: {
       ...payload,
       password: hashedPassword,
-      roles: payload.roles || ["STUDENT"],
+      roles: payload.roles || ['STUDENT'],
     },
     include: {
       studentInfo: {
@@ -39,54 +48,56 @@ const createUser = async (payload: ICreateUser): Promise<Partial<User>> => {
         },
       },
     },
-  })
+  });
 
   // Remove password from response
-  const { password, ...userWithoutPassword } = result
-  return userWithoutPassword
-}
+  const { password, ...userWithoutPassword } = result;
+  return userWithoutPassword;
+};
 
 const getAllUsers = async (
   filters: IUserFilters,
-  paginationOptions: IPaginationOptions,
+  paginationOptions: IPaginationOptions
 ): Promise<IGenericResponse<Partial<User>[]>> => {
-  const { searchTerm, ...filterData } = filters
-  const { page, limit, skip, sortBy, sortOrder } = paginationHelpers.calculatePagination(paginationOptions)
+  const { searchTerm, ...filterData } = filters;
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelpers.calculatePagination(paginationOptions);
 
-  const andConditions = []
+  const andConditions = [];
 
   // Search term
   if (searchTerm) {
     andConditions.push({
       OR: [
-        { name: { contains: searchTerm, mode: "insensitive" } },
-        { email: { contains: searchTerm, mode: "insensitive" } },
-        { mobile: { contains: searchTerm, mode: "insensitive" } },
+        { name: { contains: searchTerm, mode: 'insensitive' as const } },
+        { email: { contains: searchTerm, mode: 'insensitive' as const } },
+        { mobile: { contains: searchTerm, mode: 'insensitive' as const } },
       ],
-    })
+    });
   }
 
   // Filters
   if (Object.keys(filterData).length > 0) {
     andConditions.push({
-      AND: Object.keys(filterData).map((key) => {
-        if (key === "role") {
+      AND: Object.keys(filterData).map(key => {
+        if (key === 'role') {
           return {
             roles: {
-              has: (filterData as any)[key],
+              has: (filterData as any)[key] as Roles,
             },
-          }
+          };
         }
         return {
           [key]: {
             equals: (filterData as any)[key],
           },
-        }
+        };
       }),
-    })
+    });
   }
 
-  const whereConditions: Prisma.UserWhereInput = andConditions.length > 0 ? { AND: andConditions } : {}
+  const whereConditions =
+    andConditions.length > 0 ? { AND: andConditions } : {};
 
   const result = await prisma.user.findMany({
     where: whereConditions,
@@ -104,17 +115,17 @@ const getAllUsers = async (
         },
       },
     },
-  })
+  });
 
   const total = await prisma.user.count({
     where: whereConditions,
-  })
+  });
 
   // Remove passwords from response
-  const usersWithoutPassword = result.map((user) => {
-    const { password, ...userWithoutPassword } = user
-    return userWithoutPassword
-  })
+  const usersWithoutPassword = result.map(user => {
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  });
 
   return {
     meta: {
@@ -123,8 +134,8 @@ const getAllUsers = async (
       total,
     },
     data: usersWithoutPassword,
-  }
-}
+  };
+};
 
 const getSingleUser = async (id: string): Promise<Partial<User> | null> => {
   const result = await prisma.user.findUnique({
@@ -138,24 +149,27 @@ const getSingleUser = async (id: string): Promise<Partial<User> | null> => {
         },
       },
     },
-  })
+  });
 
   if (!result) {
-    throw new ApiError(httpStatus.NOT_FOUND, "User not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'User not found!');
   }
 
   // Remove password from response
-  const { password, ...userWithoutPassword } = result
-  return userWithoutPassword
-}
+  const { password, ...userWithoutPassword } = result;
+  return userWithoutPassword;
+};
 
-const updateUser = async (id: string, payload: IUpdateUser): Promise<Partial<User>> => {
+const updateUser = async (
+  id: string,
+  payload: IUpdateUser
+): Promise<Partial<User>> => {
   const user = await prisma.user.findUnique({
     where: { id },
-  })
+  });
 
   if (!user) {
-    throw new ApiError(httpStatus.NOT_FOUND, "User not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'User not found!');
   }
 
   const result = await prisma.user.update({
@@ -170,20 +184,23 @@ const updateUser = async (id: string, payload: IUpdateUser): Promise<Partial<Use
         },
       },
     },
-  })
+  });
 
   // Remove password from response
-  const { password, ...userWithoutPassword } = result
-  return userWithoutPassword
-}
+  const { password, ...userWithoutPassword } = result;
+  return userWithoutPassword;
+};
 
-const updateUserRoles = async (id: string, payload: IUpdateUserRoles): Promise<Partial<User>> => {
+const updateUserRoles = async (
+  id: string,
+  payload: IUpdateUserRoles
+): Promise<Partial<User>> => {
   const user = await prisma.user.findUnique({
     where: { id },
-  })
+  });
 
   if (!user) {
-    throw new ApiError(httpStatus.NOT_FOUND, "User not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'User not found!');
   }
 
   const result = await prisma.user.update({
@@ -198,30 +215,30 @@ const updateUserRoles = async (id: string, payload: IUpdateUserRoles): Promise<P
         },
       },
     },
-  })
+  });
 
   // Remove password from response
-  const { password, ...userWithoutPassword } = result
-  return userWithoutPassword
-}
+  const { password, ...userWithoutPassword } = result;
+  return userWithoutPassword;
+};
 
 const deleteUser = async (id: string): Promise<Partial<User>> => {
   const user = await prisma.user.findUnique({
     where: { id },
-  })
+  });
 
   if (!user) {
-    throw new ApiError(httpStatus.NOT_FOUND, "User not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'User not found!');
   }
 
   const result = await prisma.user.delete({
     where: { id },
-  })
+  });
 
   // Remove password from response
-  const { password, ...userWithoutPassword } = result
-  return userWithoutPassword
-}
+  const { password, ...userWithoutPassword } = result;
+  return userWithoutPassword;
+};
 
 export const UserServices = {
   createUser,
@@ -230,4 +247,4 @@ export const UserServices = {
   updateUser,
   updateUserRoles,
   deleteUser,
-}
+};

@@ -1,20 +1,29 @@
-import type { Department, Prisma } from "@prisma/client"
-import httpStatus from "http-status"
-import prisma from "../../../constants/prisma-client"
-import ApiError from "../../../errors/ApiError"
-import type { ICreateDepartment, IUpdateDepartment, IDepartmentFilters } from "./department.interface"
-import type { IPaginationOptions } from "../../../interfaces/pagination"
-import type { IGenericResponse } from "../../../interfaces/common"
-import { paginationHelpers } from "../../../helpers/paginationHelper"
+import type { Department } from '@prisma/client';
+import httpStatus from 'http-status';
+import prisma from '../../../constants/prisma-client';
+import ApiError from '../../../errors/ApiError';
+import { paginationHelpers } from '../../../helpers/paginationHelper';
+import type { IGenericResponse } from '../../../interfaces/common';
+import type { IPaginationOptions } from '../../../interfaces/pagination';
+import type {
+  ICreateDepartment,
+  IDepartmentFilters,
+  IUpdateDepartment,
+} from './department.interface';
 
-const createDepartment = async (payload: ICreateDepartment): Promise<Department> => {
+const createDepartment = async (
+  payload: ICreateDepartment
+): Promise<Department> => {
   // Check if department already exists
   const existingDepartment = await prisma.department.findFirst({
     where: { name: payload.name },
-  })
+  });
 
   if (existingDepartment) {
-    throw new ApiError(httpStatus.CONFLICT, "Department already exists with this name!")
+    throw new ApiError(
+      httpStatus.CONFLICT,
+      'Department already exists with this name!'
+    );
   }
 
   const result = await prisma.department.create({
@@ -26,39 +35,41 @@ const createDepartment = async (payload: ICreateDepartment): Promise<Department>
       course: true,
       exam: true,
     },
-  })
+  });
 
-  return result
-}
+  return result;
+};
 
 const getAllDepartments = async (
   filters: IDepartmentFilters,
-  paginationOptions: IPaginationOptions,
+  paginationOptions: IPaginationOptions
 ): Promise<IGenericResponse<Department[]>> => {
-  const { searchTerm, ...filterData } = filters
-  const { page, limit, skip, sortBy, sortOrder } = paginationHelpers.calculatePagination(paginationOptions)
+  const { searchTerm, ...filterData } = filters;
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelpers.calculatePagination(paginationOptions);
 
-  const andConditions = []
+  const andConditions = [];
 
   // Search term
   if (searchTerm) {
     andConditions.push({
-      name: { contains: searchTerm, mode: "insensitive" },
-    })
+      name: { contains: searchTerm, mode: 'insensitive' as const },
+    });
   }
 
   // Filters
   if (Object.keys(filterData).length > 0) {
     andConditions.push({
-      AND: Object.keys(filterData).map((key) => ({
+      AND: Object.keys(filterData).map(key => ({
         [key]: {
           equals: (filterData as any)[key],
         },
       })),
-    })
+    });
   }
 
-  const whereConditions: Prisma.DepartmentWhereInput = andConditions.length > 0 ? { AND: andConditions } : {}
+  const whereConditions =
+    andConditions.length > 0 ? { AND: andConditions } : {};
 
   const result = await prisma.department.findMany({
     where: whereConditions,
@@ -74,11 +85,11 @@ const getAllDepartments = async (
       course: true,
       exam: true,
     },
-  })
+  });
 
   const total = await prisma.department.count({
     where: whereConditions,
-  })
+  });
 
   return {
     meta: {
@@ -87,8 +98,8 @@ const getAllDepartments = async (
       total,
     },
     data: result,
-  }
-}
+  };
+};
 
 const getSingleDepartment = async (id: string): Promise<Department | null> => {
   const result = await prisma.department.findUnique({
@@ -100,32 +111,38 @@ const getSingleDepartment = async (id: string): Promise<Department | null> => {
       course: true,
       exam: true,
     },
-  })
+  });
 
   if (!result) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Department not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'Department not found!');
   }
 
-  return result
-}
+  return result;
+};
 
-const updateDepartment = async (id: string, payload: IUpdateDepartment): Promise<Department> => {
+const updateDepartment = async (
+  id: string,
+  payload: IUpdateDepartment
+): Promise<Department> => {
   const department = await prisma.department.findUnique({
     where: { id },
-  })
+  });
 
   if (!department) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Department not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'Department not found!');
   }
 
   // Check if name already exists (if updating name)
   if (payload.name && payload.name !== department.name) {
     const existingDepartment = await prisma.department.findFirst({
       where: { name: payload.name, id: { not: id } },
-    })
+    });
 
     if (existingDepartment) {
-      throw new ApiError(httpStatus.CONFLICT, "Department already exists with this name!")
+      throw new ApiError(
+        httpStatus.CONFLICT,
+        'Department already exists with this name!'
+      );
     }
   }
 
@@ -139,10 +156,10 @@ const updateDepartment = async (id: string, payload: IUpdateDepartment): Promise
       course: true,
       exam: true,
     },
-  })
+  });
 
-  return result
-}
+  return result;
+};
 
 const deleteDepartment = async (id: string): Promise<Department> => {
   const department = await prisma.department.findUnique({
@@ -152,23 +169,30 @@ const deleteDepartment = async (id: string): Promise<Department> => {
       exam: true,
       studentInfo: true,
     },
-  })
+  });
 
   if (!department) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Department not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'Department not found!');
   }
 
   // Check if department has associated records
-  if (department.course.length > 0 || department.exam.length > 0 || department.studentInfo.length > 0) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Cannot delete department with associated courses, exams, or students!")
+  if (
+    department.course.length > 0 ||
+    department.exam.length > 0 ||
+    department.studentInfo.length > 0
+  ) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      'Cannot delete department with associated courses, exams, or students!'
+    );
   }
 
   const result = await prisma.department.delete({
     where: { id },
-  })
+  });
 
-  return result
-}
+  return result;
+};
 
 export const DepartmentServices = {
   createDepartment,
@@ -176,4 +200,4 @@ export const DepartmentServices = {
   getSingleDepartment,
   updateDepartment,
   deleteDepartment,
-}
+};

@@ -10,7 +10,7 @@ const app: Application = express();
 
 const allowedOrigins = [
   'http://localhost:3000',
-  // 'https://fe-skill-swap.vercel.app',
+  'https://exam-control-fe.vercel.app', // Add your frontend domain here
 ];
 
 app.use(
