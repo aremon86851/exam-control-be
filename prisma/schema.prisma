@@ -30,7 +30,7 @@ model User {
   facultyDepartments Department[] @relation("FacultyDepartments")
   course             Course[]
   exam               Exam[]
-  submission         Submission[]
+  submission         Submission[] @relation("SubmissionStudent")
   result             Result[]
   restrictedExams    Exam[]       @relation("RestrictedStudents")
 
@@ -143,6 +143,7 @@ model Exam {
   result             Result[]
   Question           Question?  @relation(fields: [questionId], references: [id])
   questionId         String?
+  submissions        Submission[] @relation("ExamToSubmission")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -178,7 +179,9 @@ model Submission {
   totalScore  Float
   percent     String
   passed      String
-  student     User     @relation(fields: [studentId], references: [id])
+  examObj     Exam     @relation("ExamToSubmission", fields: [exam], references: [id]) 
+  student     User     @relation("SubmissionStudent", fields: [studentId], references: [id])
+  result      Result?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -200,6 +203,9 @@ model Result {
   student  User     @relation(fields: [studentId], references: [id])
   course   Course   @relation(fields: [courseId], references: [id])
   semester Semester @relation(fields: [semesterId], references: [id])
+  submission Submission? @relation(fields: [submissionId], references: [id])
+  submissionId String? @unique // <-- Make this field unique
+
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt

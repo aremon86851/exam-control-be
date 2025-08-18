@@ -1,20 +1,26 @@
-import type { Submission, Prisma } from "@prisma/client"
-import httpStatus from "http-status"
-import prisma from "../../../constants/prisma-client"
-import ApiError from "../../../errors/ApiError"
-import type { ICreateSubmission, IUpdateSubmission, ISubmissionFilters } from "./submission.interface"
-import type { IPaginationOptions } from "../../../interfaces/pagination"
-import type { IGenericResponse } from "../../../interfaces/common"
-import { paginationHelpers } from "../../../helpers/paginationHelper"
+import type { Prisma, Submission } from '@prisma/client';
+import httpStatus from 'http-status';
+import prisma from '../../../constants/prisma-client';
+import ApiError from '../../../errors/ApiError';
+import { paginationHelpers } from '../../../helpers/paginationHelper';
+import type { IGenericResponse } from '../../../interfaces/common';
+import type { IPaginationOptions } from '../../../interfaces/pagination';
+import type {
+  ICreateSubmission,
+  ISubmissionFilters,
+  IUpdateSubmission,
+} from './submission.interface';
 
-const createSubmission = async (payload: ICreateSubmission): Promise<Submission> => {
+const createSubmission = async (
+  payload: ICreateSubmission
+): Promise<Submission> => {
   // Verify student exists
   const student = await prisma.user.findUnique({
     where: { id: payload.studentId },
-  })
+  });
 
   if (!student) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Student not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'Student not found!');
   }
 
   const result = await prisma.submission.create({
@@ -22,32 +28,34 @@ const createSubmission = async (payload: ICreateSubmission): Promise<Submission>
     include: {
       student: true,
     },
-  })
+  });
 
-  return result
-}
+  return result;
+};
 
 const getAllSubmissions = async (
   filters: ISubmissionFilters,
-  paginationOptions: IPaginationOptions,
+  paginationOptions: IPaginationOptions
 ): Promise<IGenericResponse<Submission[]>> => {
-  const { searchTerm, ...filterData } = filters
-  const { page, limit, skip, sortBy, sortOrder } = paginationHelpers.calculatePagination(paginationOptions)
+  const { searchTerm, ...filterData } = filters;
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelpers.calculatePagination(paginationOptions);
 
-  const andConditions = []
+  const andConditions = [];
 
   // Filters
   if (Object.keys(filterData).length > 0) {
     andConditions.push({
-      AND: Object.keys(filterData).map((key) => ({
+      AND: Object.keys(filterData).map(key => ({
         [key]: {
           equals: (filterData as any)[key],
         },
       })),
-    })
+    });
   }
 
-  const whereConditions: Prisma.SubmissionWhereInput = andConditions.length > 0 ? { AND: andConditions } : {}
+  const whereConditions: Prisma.SubmissionWhereInput =
+    andConditions.length > 0 ? { AND: andConditions } : {};
 
   const result = await prisma.submission.findMany({
     where: whereConditions,
@@ -59,11 +67,11 @@ const getAllSubmissions = async (
     include: {
       student: true,
     },
-  })
+  });
 
   const total = await prisma.submission.count({
     where: whereConditions,
-  })
+  });
 
   return {
     meta: {
@@ -72,8 +80,8 @@ const getAllSubmissions = async (
       total,
     },
     data: result,
-  }
-}
+  };
+};
 
 const getSingleSubmission = async (id: string): Promise<Submission | null> => {
   const result = await prisma.submission.findUnique({
@@ -81,22 +89,25 @@ const getSingleSubmission = async (id: string): Promise<Submission | null> => {
     include: {
       student: true,
     },
-  })
+  });
 
   if (!result) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Submission not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'Submission not found!');
   }
 
-  return result
-}
+  return result;
+};
 
-const updateSubmission = async (id: string, payload: IUpdateSubmission): Promise<Submission> => {
+const updateSubmission = async (
+  id: string,
+  payload: IUpdateSubmission
+): Promise<Submission> => {
   const submission = await prisma.submission.findUnique({
     where: { id },
-  })
+  });
 
   if (!submission) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Submission not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'Submission not found!');
   }
 
   const result = await prisma.submission.update({
@@ -105,26 +116,53 @@ const updateSubmission = async (id: string, payload: IUpdateSubmission): Promise
     include: {
       student: true,
     },
-  })
+  });
 
-  return result
-}
+  return result;
+};
 
 const deleteSubmission = async (id: string): Promise<Submission> => {
   const submission = await prisma.submission.findUnique({
     where: { id },
-  })
+  });
 
   if (!submission) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Submission not found!")
+    throw new ApiError(httpStatus.NOT_FOUND, 'Submission not found!');
   }
 
   const result = await prisma.submission.delete({
     where: { id },
-  })
+  });
 
-  return result
-}
+  return result;
+};
+
+// Add these functions:
+const getByExamAndStudent = async (
+  examId: string,
+  studentId: string
+): Promise<Submission | null> => {
+  return prisma.submission.findFirst({
+    where: {
+      exam: examId,
+      studentId,
+    },
+    include: {
+      student: true,
+    },
+  });
+};
+
+const getByStudent = async (studentId: string): Promise<Submission[]> => {
+  return prisma.submission.findMany({
+    where: {
+      studentId,
+    },
+    include: {
+      student: true,
+    },
+  });
+};
 
 export const SubmissionServices = {
   createSubmission,
@@ -132,4 +170,6 @@ export const SubmissionServices = {
   getSingleSubmission,
   updateSubmission,
   deleteSubmission,
-}
+  getByExamAndStudent,
+  getByStudent,
+};

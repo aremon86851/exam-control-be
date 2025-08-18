@@ -35,5 +35,8 @@ routes.get('/test', (req, res) => {
   res.send({ message: 'Thiss is test message' });
 });
 routes.post('/logout', auth(), AuthController.logout);
+routes.get('/test', (req, res) => {
+  res.send({ message: 'This is test message' });
+});
 
 export const AuthUser = routes;

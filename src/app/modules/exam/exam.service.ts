@@ -99,6 +99,7 @@ const getAllExams = async (
       questions: true,
       restrictedStudents: true,
       result: true,
+      submissions: true,
     },
   });
 
