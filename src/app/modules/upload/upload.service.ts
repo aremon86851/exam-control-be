@@ -5,7 +5,7 @@ import pdfParse from 'pdf-parse';
 import ApiError from '../../../errors/ApiError';
 
 interface GeneratedQuestion {
-  type: 'mcq_single' | 'trueFalse' | 'shortAnswer';
+  type: 'mcq_single' | 'mcq_multiple' | 'trueFalse' | 'shortAnswer';
   question: string;
   options?: string[];
   correctAnswer?: string;
@@ -55,7 +55,7 @@ const generateQuestionsFromText = (text: string): GeneratedQuestion[] => {
     const sentences = paragraph
       .split(/[.!?][\s\n]/)
       .map(s => s.trim())
-      .filter(s => s.length > 15);
+      .filter(s => s.length > 4);
 
     allSentences.push(...sentences);
   }
@@ -70,13 +70,16 @@ const generateQuestionsFromText = (text: string): GeneratedQuestion[] => {
   const selectedSentences = allSentences.slice(0, 30);
 
   // Create an even distribution of question types
-  for (let i = 0; i < selectedSentences.length && questions.length < 15; i++) {
+  for (let i = 0; i < selectedSentences.length && questions.length < 5; i++) {
     const sentence = selectedSentences[i];
 
-    if (i % 3 === 0) {
-      const mcq = createMCQQuestion(sentence);
-      if (mcq) questions.push(mcq);
-    } else if (i % 3 === 1) {
+    if (i % 4 === 0) {
+      const mcqSingle = createMCQQuestion(sentence);
+      if (mcqSingle) questions.push(mcqSingle);
+    } else if (i % 4 === 1) {
+      const mcqMultiple = createMultipleAnswerQuestion(sentence);
+      if (mcqMultiple) questions.push(mcqMultiple);
+    } else if (i % 4 === 2) {
       const tf = createTrueFalseQuestion(sentence);
       if (tf) questions.push(tf);
     } else {
@@ -270,6 +273,116 @@ const createTrueFalseQuestion = (sentence: string): GeneratedQuestion => {
     question: statement,
     options: ['True', 'False'],
     correctAnswer,
+  };
+};
+
+/**
+ * Create multiple-choice question with multiple correct answers
+ */
+const createMultipleAnswerQuestion = (
+  sentence: string
+): GeneratedQuestion | null => {
+  // Find important words that could serve as topics for questions
+  const words = sentence.split(' ').map(w => w.replace(/[.,;:?!()]/, ''));
+
+  // Look for content words (longer than 4 chars)
+  const contentWords = words.filter(w => w.length > 4);
+  if (contentWords.length < 3) return null; // Need enough content words to create multiple answers
+
+  // Select 2-3 content words to focus on
+  const shuffledWords = [...contentWords];
+  for (let i = shuffledWords.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
+  }
+
+  const selectedWords = shuffledWords.slice(
+    0,
+    Math.min(3, shuffledWords.length)
+  );
+
+  // Create a question based on the selected words
+  let questionText = '';
+  const questionFormats = [
+    `Which of the following relate to ${selectedWords[0]}?`,
+    `Select all characteristics of ${selectedWords[0]}.`,
+    `Which statements are true about ${selectedWords[0]}?`,
+    `Select all that apply to ${selectedWords[0]}.`,
+  ];
+  questionText =
+    questionFormats[Math.floor(Math.random() * questionFormats.length)];
+
+  // Generate options where some are correct and some are wrong
+  const options: string[] = [];
+  const correctAnswers: string[] = [];
+
+  // Create 2-3 correct answers
+  for (let i = 0; i < Math.min(selectedWords.length, 3); i++) {
+    const word = selectedWords[i];
+    let correctOption = '';
+
+    // Look for patterns in the sentence to create meaningful answers
+    if (sentence.includes(`${word} is`) || sentence.includes(`${word} are`)) {
+      const regex = new RegExp(`${word} (is|are) [^.!?;]*`, 'i');
+      const match = sentence.match(regex);
+      if (match) {
+        correctOption = match[0];
+      }
+    }
+
+    if (!correctOption) {
+      // Create a generic statement using the word
+      const statements = [
+        `${word} is an important concept in this context.`,
+        `${word} relates to the main topic of discussion.`,
+        `${word} is mentioned in the text as a relevant term.`,
+      ];
+      correctOption = statements[Math.floor(Math.random() * statements.length)];
+    }
+
+    correctOption = formatAnswer(correctOption);
+    options.push(correctOption);
+    correctAnswers.push(correctOption);
+  }
+
+  // Create 2-3 incorrect answers
+  for (let i = 0; i < 3; i++) {
+    const incorrectStatements = [
+      `None of these concepts are related to this topic.`,
+      `This term is from a different subject entirely.`,
+      `This concept is not mentioned in the provided text.`,
+      `This refers to an unrelated process or idea.`,
+    ];
+
+    const incorrectOption = incorrectStatements[i % incorrectStatements.length];
+    options.push(incorrectOption);
+  }
+
+  // Shuffle options
+  for (let i = options.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [options[i], options[j]] = [options[j], options[i]];
+
+    // Update correctAnswers if they've been moved
+    if (correctAnswers.includes(options[i])) {
+      const newIndex = correctAnswers.indexOf(options[i]);
+      if (newIndex !== -1) {
+        correctAnswers[newIndex] = options[i];
+      }
+    }
+    if (correctAnswers.includes(options[j])) {
+      const newIndex = correctAnswers.indexOf(options[j]);
+      if (newIndex !== -1) {
+        correctAnswers[newIndex] = options[j];
+      }
+    }
+  }
+
+  return {
+    type: 'mcq_multiple',
+    question: questionText,
+    options,
+    correctAnswers,
   };
 };
 
@@ -489,46 +602,78 @@ const parseOpenAIResponse = (aiText: string): GeneratedQuestion[] => {
             opt.replace(/^[a-d][).]\s+/i, '').trim()
           );
 
-          // Try multiple formats for correct answer
-          const answerPatterns = [
-            /(?:answer|correct|answer:)\s*([a-d])[).]/i,
-            /(?:answer|correct|answer is):?\s*["']?([a-d])["']?/i,
-            /(?:answer|correct|answer is):?\s*([a-d])[).]/i,
-            /(?:answer|correct|answer is):?\s*option\s*([a-d])/i,
-          ];
+          // Check if this might be a multiple-choice question with multiple answers
+          const multipleAnswersPattern =
+            /(?:answers|correct answers|multiple answers):\s*([a-d,\s]+)/i;
+          const multipleAnswersMatch = optionsText.match(
+            multipleAnswersPattern
+          );
 
-          let answerLetter = '';
-          for (const pattern of answerPatterns) {
-            const match = optionsText.match(pattern);
-            if (match) {
-              answerLetter = match[1].toLowerCase();
-              break;
+          if (multipleAnswersMatch) {
+            // This is a multiple-choice question with multiple correct answers
+            const answerLetters =
+              multipleAnswersMatch[1].toLowerCase().match(/[a-d]/g) || [];
+            const correctAnswers: string[] = [];
+
+            for (const letter of answerLetters) {
+              const answerIndex = letter.charCodeAt(0) - 'a'.charCodeAt(0);
+              if (answerIndex >= 0 && answerIndex < options.length) {
+                correctAnswers.push(options[answerIndex]);
+              }
             }
-          }
 
-          if (answerLetter) {
-            const answerIndex = answerLetter.charCodeAt(0) - 'a'.charCodeAt(0);
-            if (answerIndex >= 0 && answerIndex < options.length) {
-              correctAnswer = options[answerIndex];
+            // Only add the question if we have options and at least one correct answer
+            if (options.length >= 3 && correctAnswers.length >= 1) {
+              questions.push({
+                type: 'mcq_multiple',
+                question: questionText.trim(),
+                options,
+                correctAnswers,
+              });
             }
-          }
+          } else {
+            // Try multiple formats for correct answer (single choice)
+            const answerPatterns = [
+              /(?:answer|correct|answer:)\s*([a-d])[).]/i,
+              /(?:answer|correct|answer is):?\s*["']?([a-d])["']?/i,
+              /(?:answer|correct|answer is):?\s*([a-d])[).]/i,
+              /(?:answer|correct|answer is):?\s*option\s*([a-d])/i,
+            ];
 
-          // If we couldn't determine the answer but have options, use the first one
-          if (!correctAnswer && options.length > 0) {
-            correctAnswer = options[0];
-            console.warn(
-              'Could not determine correct answer, using first option'
-            );
-          }
+            let answerLetter = '';
+            for (const pattern of answerPatterns) {
+              const match = optionsText.match(pattern);
+              if (match) {
+                answerLetter = match[1].toLowerCase();
+                break;
+              }
+            }
 
-          // Only add the question if we have options and a correct answer
-          if (options.length >= 2 && correctAnswer) {
-            questions.push({
-              type: 'mcq_single',
-              question: questionText.trim(),
-              options,
-              correctAnswer,
-            });
+            if (answerLetter) {
+              const answerIndex =
+                answerLetter.charCodeAt(0) - 'a'.charCodeAt(0);
+              if (answerIndex >= 0 && answerIndex < options.length) {
+                correctAnswer = options[answerIndex];
+              }
+            }
+
+            // If we couldn't determine the answer but have options, use the first one
+            if (!correctAnswer && options.length > 0) {
+              correctAnswer = options[0];
+              console.warn(
+                'Could not determine correct answer, using first option'
+              );
+            }
+
+            // Only add the question if we have options and a correct answer
+            if (options.length >= 2 && correctAnswer) {
+              questions.push({
+                type: 'mcq_single',
+                question: questionText.trim(),
+                options,
+                correctAnswer,
+              });
+            }
           }
         }
       } catch (error) {
