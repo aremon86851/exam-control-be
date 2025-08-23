@@ -8,6 +8,7 @@ import { QuestionRoutes } from '../modules/question/question.route';
 import { ResultRoutes } from '../modules/result/result.route';
 import { SemesterRoutes } from '../modules/semester/semester.route';
 import { SubmissionRoutes } from '../modules/submission/submission.route';
+import { UploadRoutes } from '../modules/upload/upload.route';
 import { UserRoutes } from '../modules/user/user.route';
 
 const router = express.Router();
@@ -53,6 +54,10 @@ const moduleRoutes = [
   {
     path: '/autocomplete',
     routes: AutocompleteRoutes,
+  },
+  {
+    path: '/uploads',
+    routes: UploadRoutes,
   },
 ];
 
