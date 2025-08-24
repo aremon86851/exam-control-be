@@ -1,4 +1,6 @@
 import { Prisma, Roles, Status, type User } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import httpStatus from 'http-status';
 import prisma from '../../../constants/prisma-client';
 import ApiError from '../../../errors/ApiError';
@@ -13,9 +15,19 @@ interface IInviteUserData {
 }
 
 /**
+ * Generate a temporary password for invited users
+ */
+const generateTemporaryPassword = (): string => {
+  // Generate a random string of 8 characters
+  return crypto.randomBytes(4).toString('hex');
+};
+
+/**
  * Service for inviting users to the system
  */
-const inviteUser = async (payload: IInviteUserData): Promise<Partial<User>> => {
+const inviteUser = async (
+  payload: IInviteUserData
+): Promise<Partial<User> & { tempPassword?: string }> => {
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({
     where: { email: payload.email },
@@ -27,6 +39,10 @@ const inviteUser = async (payload: IInviteUserData): Promise<Partial<User>> => {
       'User already exists and has completed registration'
     );
   }
+
+  // Generate a temporary password for the invited user
+  const tempPassword = generateTemporaryPassword();
+  const hashedPassword = await bcrypt.hash(tempPassword, 12);
 
   // Extract student-specific data
   const { departmentId, semesterId, courseId, ...userData } = payload;
@@ -43,6 +59,7 @@ const inviteUser = async (payload: IInviteUserData): Promise<Partial<User>> => {
           where: { id: existingUser.id },
           data: {
             ...userData,
+            password: hashedPassword, // Set temporary password
             status: Status.INVITED,
           },
         });
@@ -51,6 +68,7 @@ const inviteUser = async (payload: IInviteUserData): Promise<Partial<User>> => {
         user = await tx.user.create({
           data: {
             ...userData,
+            password: hashedPassword, // Set temporary password
             status: Status.INVITED,
           },
         });
@@ -91,9 +109,12 @@ const inviteUser = async (payload: IInviteUserData): Promise<Partial<User>> => {
         }
       }
 
-      // Remove password from response
+      // Remove password from response but return temporary password
       const { password, ...userWithoutPassword } = user;
-      return userWithoutPassword;
+      return {
+        ...userWithoutPassword,
+        tempPassword, // Include temporary password in response
+      };
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {

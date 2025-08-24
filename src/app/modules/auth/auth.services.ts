@@ -20,8 +20,12 @@ const registerUser = async (payload: IRegisterUser): Promise<Partial<User>> => {
     },
   });
 
-  if (isUserExists && isUserExists.status === Status.USER) {
-    throw new ApiError(httpStatus.CONFLICT, 'User already exists!');
+  // Only invited users can register
+  if (!isUserExists || isUserExists.status !== Status.INVITED) {
+    throw new ApiError(
+      httpStatus.UNAUTHORIZED,
+      'Only invited users can register. Please contact an administrator to get an invitation.'
+    );
   }
 
   // Hash password if provided
@@ -32,31 +36,18 @@ const registerUser = async (payload: IRegisterUser): Promise<Partial<User>> => {
 
   let result;
 
-  if (isUserExists && isUserExists.status === Status.INVITED) {
-    // Update existing invited user
-    result = await prisma.user.update({
-      where: {
-        email: payload.email,
-      },
-      data: {
-        ...payload,
-        password: hashedPassword,
-        status: Status.USER,
-        lastLogin: new Date(),
-      },
-    });
-  } else {
-    // Create new user
-    result = await prisma.user.create({
-      data: {
-        ...payload,
-        password: hashedPassword,
-        roles: payload.roles || ['STUDENT'],
-        status: Status.USER,
-        lastLogin: new Date(),
-      },
-    });
-  }
+  // Update existing invited user
+  result = await prisma.user.update({
+    where: {
+      email: payload.email,
+    },
+    data: {
+      ...payload,
+      password: hashedPassword,
+      // Keep status as INVITED to allow continued login
+      lastLogin: new Date(),
+    },
+  });
 
   // Remove password from response
   const { password: _, ...userWithoutPassword } = result;
@@ -64,10 +55,10 @@ const registerUser = async (payload: IRegisterUser): Promise<Partial<User>> => {
 };
 
 const loginUser = async (payload: ILoginUser): Promise<ILoginUserResponse> => {
+  // Find the user by email
   const user = await prisma.user.findFirst({
     where: {
       email: payload.email,
-      status: Status.USER,
     },
   });
 
@@ -75,23 +66,37 @@ const loginUser = async (payload: ILoginUser): Promise<ILoginUserResponse> => {
     throw new ApiError(httpStatus.NOT_FOUND, 'User not found!');
   }
 
+  // Check if the user has been invited (only invited users can log in)
+  if (user.status !== Status.INVITED) {
+    throw new ApiError(
+      httpStatus.UNAUTHORIZED,
+      'Only invited users can login. Please contact an administrator to get an invitation.'
+    );
+  }
+
   if (!user.isActive) {
     throw new ApiError(httpStatus.UNAUTHORIZED, 'User account is deactivated!');
   }
 
-  // Check password
-  if (
-    !user.password ||
-    !(await bcrypt.compare(payload.password, user.password))
-  ) {
+  // Check if the user has a password set
+  if (!user.password) {
+    throw new ApiError(
+      httpStatus.UNAUTHORIZED,
+      'Please use the temporary password provided during invitation'
+    );
+  }
+
+  // Validate the password
+  if (!(await bcrypt.compare(payload.password, user.password))) {
     throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid credentials!');
   }
 
-  // Create access token
+  // Create access token with user status included
   const jwtPayload = {
     userId: user.id,
     email: user.email,
     roles: user.roles,
+    status: user.status, // Include status in JWT payload
   };
 
   const accessToken = jwt.sign(jwtPayload, process.env.JWT_SECRET as string, {
@@ -188,6 +193,7 @@ const refreshToken = async (token: string) => {
     userId: user.id,
     email: user.email,
     roles: user.roles,
+    status: user.status, // Include status in refresh token payload as well
   };
 
   const accessToken = jwt.sign(jwtPayload, process.env.JWT_SECRET as string, {
@@ -222,10 +228,34 @@ const getProfile = async (userId: string): Promise<Partial<User>> => {
   return userWithoutPassword;
 };
 
+/**
+ * Check if a user has been invited
+ */
+const checkInvitationStatus = async (
+  email: string
+): Promise<{ isInvited: boolean }> => {
+  const user = await prisma.user.findFirst({
+    where: {
+      email,
+      status: Status.INVITED,
+    },
+    select: {
+      id: true,
+      email: true,
+      status: true,
+    },
+  });
+
+  return {
+    isInvited: !!user,
+  };
+};
+
 export const AuthServices = {
   registerUser,
   loginUser,
   changePassword,
   refreshToken,
   getProfile,
+  checkInvitationStatus,
 };

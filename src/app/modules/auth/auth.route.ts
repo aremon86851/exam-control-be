@@ -2,16 +2,19 @@ import express from 'express';
 import auth from '../../middlewares/auth';
 import validateRequest from '../../middlewares/validateRequest';
 import { AuthController } from './auth.controller';
+import { InvitedUserController } from './auth.invited.controller';
+import { InvitedUserValidation } from './auth.invited.validation';
 import { AuthValidation } from './auth.validation';
 
 const routes = express.Router();
 
 // Public routes
-routes.post(
-  '/register',
-  validateRequest(AuthValidation.registerUserZodSchema),
-  AuthController.registerUser
-);
+// Note: Regular registration is disabled - users can only be created through invitation
+// routes.post(
+//   '/register',
+//   validateRequest(AuthValidation.registerUserZodSchema),
+//   AuthController.registerUser
+// );
 routes.post(
   '/login',
   validateRequest(AuthValidation.loginUserZodSchema),
@@ -22,6 +25,12 @@ routes.post(
   validateRequest(AuthValidation.refreshTokenZodSchema),
   AuthController.refreshToken
 );
+routes.post(
+  '/invited/setup',
+  validateRequest(InvitedUserValidation.setupInvitedUserSchema),
+  InvitedUserController.setupInvitedUser
+);
+routes.get('/check-invitation/:email', AuthController.checkInvitationStatus);
 
 // Protected routes
 routes.post(

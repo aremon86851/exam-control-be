@@ -11,8 +11,12 @@ const inviteUser = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
-    message: 'User invitation sent successfully!',
-    data: result,
+    message: 'User invitation sent successfully! Temporary password generated.',
+    data: {
+      ...result,
+      // Include temporary password in response for admin to share with the invited user
+      tempPassword: result.tempPassword,
+    },
   });
 });
 

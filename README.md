@@ -45,6 +45,19 @@ API endpoints include:
 
 For detailed API documentation, check the API routes in the codebase.
 
+### User Invitation System
+
+The system includes a comprehensive user invitation flow:
+
+1. **User Creation**: Users can ONLY be created when an admin invites them - there is no public registration
+2. **Invitation Process**: When invited, users are created with status=INVITED and a temporary password
+3. **Authentication**: Only invited users can log in through the system
+4. **Password Setup**: Invited users can set up their permanent password after first login
+5. **Role-Based Data**: Students are associated with departments, semesters, and courses
+6. **Status Persistence**: Users remain in "invited" status throughout their lifecycle in the system
+
+For detailed documentation on the invitation system, see [User Invitation System Documentation](./docs/user-invitation-system.md).
+
 ## Tech Stack
 
 - Node.js with Express

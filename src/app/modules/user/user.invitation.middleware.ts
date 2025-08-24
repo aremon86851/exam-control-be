@@ -33,12 +33,12 @@ const validateInvitationData = (
           'Semester ID is required for student users'
         );
       }
-      if (!courseId) {
-        throw new ApiError(
-          httpStatus.BAD_REQUEST,
-          'Course ID is required for student users'
-        );
-      }
+      //   if (!courseId) {
+      //     throw new ApiError(
+      //       httpStatus.BAD_REQUEST,
+      //       'Course ID is required for student users'
+      //     );
+      //   }
     }
 
     // If everything is valid, proceed

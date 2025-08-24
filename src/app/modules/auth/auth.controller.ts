@@ -87,6 +87,22 @@ const logout = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const checkInvitationStatus = catchAsync(
+  async (req: Request, res: Response) => {
+    const { email } = req.params;
+    const result = await AuthServices.checkInvitationStatus(email);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: result.isInvited
+        ? 'User has been invited and can login'
+        : 'User has not been invited',
+      data: result,
+    });
+  }
+);
+
 export const AuthController = {
   registerUser,
   loginUser,
@@ -94,4 +110,5 @@ export const AuthController = {
   refreshToken,
   getProfile,
   logout,
+  checkInvitationStatus,
 };
