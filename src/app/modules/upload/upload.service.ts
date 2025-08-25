@@ -70,7 +70,7 @@ const generateQuestionsFromText = (text: string): GeneratedQuestion[] => {
   const selectedSentences = allSentences.slice(0, 30);
 
   // Create an even distribution of question types
-  for (let i = 0; i < selectedSentences.length && questions.length < 5; i++) {
+  for (let i = 0; i < selectedSentences.length && questions.length < 10; i++) {
     const sentence = selectedSentences[i];
 
     if (i % 4 === 0) {
@@ -83,8 +83,8 @@ const generateQuestionsFromText = (text: string): GeneratedQuestion[] => {
       const tf = createTrueFalseQuestion(sentence);
       if (tf) questions.push(tf);
     } else {
-      const sa = createShortAnswerQuestion(sentence);
-      if (sa) questions.push(sa);
+      const mcqSingle = createMCQQuestion(sentence);
+      if (mcqSingle) questions.push(mcqSingle);
     }
   }
 
