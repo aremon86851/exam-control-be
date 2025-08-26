@@ -138,6 +138,8 @@ const getSingleExam = async (id: string): Promise<Exam | null> => {
   return result;
 };
 
+// ...existing imports and code...
+
 const updateExam = async (id: string, payload: IUpdateExam): Promise<Exam> => {
   const exam = await prisma.exam.findUnique({
     where: { id },
@@ -147,17 +149,49 @@ const updateExam = async (id: string, payload: IUpdateExam): Promise<Exam> => {
     throw new ApiError(httpStatus.NOT_FOUND, 'Exam not found!');
   }
 
+  // Build update data and convert relation id fields into nested writes
+  const updateData: any = { ...payload };
+
+  // Convert relation id scalars to nested connect/set operations
+  if ((payload as any).departmentId) {
+    updateData.department = { connect: { id: (payload as any).departmentId } };
+    delete updateData.departmentId;
+  }
+
+  if ((payload as any).semesterId) {
+    updateData.semester = { connect: { id: (payload as any).semesterId } };
+    delete updateData.semesterId;
+  }
+
+  if ((payload as any).courseId) {
+    updateData.course = { connect: { id: (payload as any).courseId } };
+    delete updateData.courseId;
+  }
+
+  if ((payload as any).facultyId) {
+    updateData.faculty = { connect: { id: (payload as any).facultyId } };
+    delete updateData.facultyId;
+  }
+
+  // If questionIds provided, set questions relation (replace existing)
+  if ((payload as any).questionIds) {
+    updateData.questions = {
+      set: (payload as any).questionIds.map((qid: string) => ({ id: qid })),
+    };
+    delete updateData.questionIds;
+  }
+
   const result = await prisma.exam.update({
     where: { id },
-    data: payload,
+    data: updateData,
     include: {
-      department: true,
       semester: true,
       course: true,
       faculty: true,
       questions: true,
       restrictedStudents: true,
       result: true,
+      submissions: true,
     },
   });
 
